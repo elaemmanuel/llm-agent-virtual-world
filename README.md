@@ -164,11 +164,6 @@ After task completes:
 - **State:** Zustand
 - **HTTP Client:** Axios
 - **Styling:** CSS3 with custom dark theme
-
-### DevOps
-- **Server:** Uvicorn
-- **Dev Tools:** React Scripts, npm
-
 ---
 
 ## 📂 Project Structure
@@ -251,32 +246,6 @@ Tests cover:
 
 ---
 
-## 🚢 Deployment
-
-### Backend (Railway/Render)
-
-```bash
-# Build Docker image
-docker build -t llm-agent-backend .
-
-# Deploy to Railway/Render
-# Set environment variables:
-# - DATABASE_URL
-# - ANTHROPIC_API_KEY
-```
-
-### Frontend (Vercel/Netlify)
-
-```bash
-cd frontend
-npm run build
-# Deploy the 'build' folder to Vercel/Netlify
-```
-
-Update `API_BASE_URL` in `src/services/api.js` to production backend URL.
-
----
-
 ## 📊 Performance
 
 - **3D Rendering:** 60 FPS (Three.js)
@@ -286,49 +255,6 @@ Update `API_BASE_URL` in `src/services/api.js` to production backend URL.
 
 ---
 
-## 🔐 Security Notes
-
-- API keys stored in `.env` (never committed)
-- CORS configured for frontend only
-- Input validation with Pydantic
-- SQL injection protection via ORM
-- No sensitive data in logs
-
----
-
-## 🤝 Contributing
-
-This is a portfolio project. Feel free to:
-- Fork and customize
-- Add new world object types
-- Implement real-time WebSocket updates
-- Add multi-agent support
-- Extend with more complex tasks
-
----
-
-## 📝 License
-
-MIT License - feel free to use for learning and projects
-
----
-
-## 🙏 Acknowledgments
-
-- **Claude API** by Anthropic for AI reasoning
-- **Three.js** for 3D graphics
-- **FastAPI** for modern Python web framework
-- **React** for frontend framework
-
----
-
-## 📧 Contact
-
-Built as a demonstration of full-stack AI engineering.
-
-For questions or improvements, reach out!
-
----
 
 ## 🎯 Next Steps
 
