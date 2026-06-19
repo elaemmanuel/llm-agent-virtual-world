@@ -1,0 +1,308 @@
+# PHASE 1: Integration Guide
+
+This guide walks you through integrating the three new service files into your backend.
+
+## Files to Create/Copy
+
+### 1. Create `backend/services/__init__.py`
+
+```python
+# backend/services/__init__.py
+from services.environment import VirtualEnvironment, Agent, WorldObject
+from services.agent import AgentService
+from services.llm import LLMService
+
+__all__ = [
+    "VirtualEnvironment",
+    "Agent",
+    "WorldObject",
+    "AgentService",
+    "LLMService"
+]
+```
+
+### 2. Copy the service files
+
+Copy these three files to the specified locations:
+
+**File 1:** `environment.py` → `backend/services/environment.py`
+- The game engine that manages world state and executes actions
+
+**File 2:** `agent.py` → `backend/services/agent.py`
+- The harness that coordinates environment + LLM
+
+**File 3:** `llm.py` → `backend/services/llm.py`
+- Claude API integration with tool use
+
+## Testing the Integration
+
+### Test 1: Import Test
+
+Before running anything, test that all imports work:
+
+```bash
+cd backend/
+python -c "
+from services.environment import VirtualEnvironment
+from services.agent import AgentService
+from services.llm import LLMService
+from schemas.observation import Observation
+from schemas.action import AGENT_TOOLS
+print('✓ All imports successful!')
+"
+```
+
+Expected output:
+```
+✓ All imports successful!
+```
+
+### Test 2: Environment Creation Test
+
+Test that you can create an environment and add objects:
+
+```bash
+python -c "
+from services.environment import VirtualEnvironment, WorldObject
+
+# Create world
+env = VirtualEnvironment(world_size_x=20, world_size_y=10, world_size_z=20)
+print(f'✓ Environment created. Agent at {env.agent.position}')
+
+# Add an object
+cube = WorldObject(
+    id=1,
+    name='Red Cube',
+    object_type='cube',
+    position=[5, 0, 5],
+    color='red',
+    pickupable=True
+)
+env.add_object(cube)
+print(f'✓ Added object. World now has {len(env.objects)} objects')
+
+# Get observation
+obs = env.get_observation('Navigate to the red cube')
+print(f'✓ Observation generated. Agent sees {len(obs.visible_objects)} objects')
+"
+```
+
+Expected output:
+```
+✓ Environment created. Agent at [10.0, 0.0, 10.0]
+✓ Added object. World now has 1 objects
+✓ Observation generated. Agent sees 1 objects
+```
+
+### Test 3: Action Execution Test
+
+Test that actions work in the environment:
+
+```bash
+python -c "
+from services.environment import VirtualEnvironment, WorldObject
+
+env = VirtualEnvironment()
+
+# Add an object close to agent
+cube = WorldObject(
+    id=1,
+    name='Red Cube',
+    object_type='cube',
+    position=[11, 0, 10],
+    color='red',
+    pickupable=True
+)
+env.add_object(cube)
+
+print('Initial agent position:', env.agent.position)
+print('Agent sees:', [obj.name for obj in env.get_nearby_objects()])
+
+# Try to move forward
+result = env.execute_action('move', {'direction': 'forward'})
+print(f'Move result: {result.success} - {result.message}')
+print('New agent position:', env.agent.position)
+
+# Try to move again
+result = env.execute_action('move', {'direction': 'forward'})
+print(f'Second move: {result.success} - {result.message}')
+print('Final position:', env.agent.position)
+"
+```
+
+Expected output:
+```
+Initial agent position: [10.0, 0.0, 10.0]
+Agent sees: ['Red Cube']
+Move result: True - Moved forward to position [10.0, 0.0, 11.0]
+Second move: True - Moved forward to position [10.0, 0.0, 12.0]
+Final position: [10.0, 0.0, 12.0]
+```
+
+### Test 4: Database Setup Test
+
+Test that the database is properly configured:
+
+```bash
+python -c "
+import asyncio
+from database import init_db, drop_db
+
+async def test_db():
+    try:
+        await init_db()
+        print('✓ Database initialized successfully')
+        print('✓ Tables created')
+    except Exception as e:
+        print(f'✗ Error: {e}')
+
+asyncio.run(test_db())
+"
+```
+
+Expected output:
+```
+✓ Database initialized successfully
+✓ Tables created
+```
+
+## Understanding What You've Built
+
+### Architecture Layers
+
+```
+┌─────────────────────────────────┐
+│  Frontend (React + Three.js)     │  (Phase 2)
+├─────────────────────────────────┤
+│  FastAPI (Routes & WebSocket)   │  (Phase 2)
+├─────────────────────────────────┤
+│  Agent Service                  │  ← You are here (harness)
+├─────────────────────────────────┤
+│  LLM Service                    │  ← Claude integration
+├─────────────────────────────────┤
+│  Environment Service            │  ← Game engine
+├─────────────────────────────────┤
+│  Database (PostgreSQL)          │  ← Persistence
+└─────────────────────────────────┘
+```
+
+### Data Flow During Task Execution
+
+1. **Setup Phase**
+   ```
+   AgentService.run_task(task_description)
+   ↓
+   Environment.reset() → Agent at [10, 0, 10]
+   ↓
+   Database: Create EnvironmentSession
+   ```
+
+2. **Perception Phase (each step)**
+   ```
+   Environment.get_observation(task)
+   ↓
+   Returns: Observation {
+       agent_state: {...},
+       visible_objects: [{id, type, position, ...}],
+       inventory: [...],
+       environment_context: {...}
+   }
+   ```
+
+3. **Reasoning Phase**
+   ```
+   LLMService.reason_and_act(prompt, tools, observation)
+   ↓
+   Call Claude with available tools
+   ↓
+   Claude responds: {type: "tool_use", name: "move", input: {direction: "forward"}}
+   ```
+
+4. **Action Phase**
+   ```
+   Environment.execute_action("move", {direction: "forward"})
+   ↓
+   Validate action (in bounds? no collision?)
+   ↓
+   Execute: Agent position [10, 0, 10] → [10, 0, 11]
+   ↓
+   Return: ActionResult {success: true, message: "...", new_position: [...]}
+   ```
+
+5. **Logging Phase**
+   ```
+   Database: Store AgentAction {
+       session_id: 1,
+       action_type: "move",
+       success: true,
+       agent_position_before: [10, 0, 10],
+       agent_position_after: [10, 0, 11],
+       step_number: 1
+   }
+   ```
+
+6. **Repeat** (back to perception) until task complete or max steps
+
+## Common Issues & Solutions
+
+### Issue 1: "ModuleNotFoundError: No module named 'services'"
+
+**Solution:** Make sure you're running from the `backend/` directory:
+```bash
+cd backend/
+python -c "from services.environment import VirtualEnvironment"
+```
+
+### Issue 2: Database connection fails
+
+**Solution:** Check your `.env` file:
+```bash
+# Verify DATABASE_URL is correct
+grep DATABASE_URL .env
+
+# Should show something like:
+# DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/aiteacher
+```
+
+### Issue 3: "ImportError: cannot import name 'settings' from 'config'"
+
+**Solution:** Make sure `config.py` has this line at the end:
+```python
+# At end of config.py
+settings = Settings()
+```
+
+## Next Steps (Phase 1 Continued)
+
+Now that services are working, we need to:
+
+1. **Create FastAPI endpoints** (`api/environment.py`, `api/agent.py`)
+   - Routes to start tasks, step the agent, get status
+
+2. **Create main.py**
+   - Boot up the FastAPI server
+   - Initialize services
+
+3. **Create utilities** (logging, error handling)
+
+4. **Frontend scaffold** (Three.js basic scene)
+
+## Quick Summary
+
+You've built:
+- ✅ Environment Service: Game engine with physics, actions, observations
+- ✅ Agent Service: Harness coordinating environment + LLM
+- ✅ LLM Service: Claude API integration with tool use
+- ✅ Schemas: Type-safe data structures for observations and actions
+- ✅ Models: Database persistence for sessions and action logs
+
+This is the **core** of Phase 1. Everything else builds on top of these services.
+
+## Assignment
+
+1. Copy the three service files to `backend/services/`
+2. Run the four tests above to verify everything works
+3. Take notes on any errors and share them
+4. Once all tests pass, we'll move to **FastAPI endpoints and main.py**
+
+Ready to proceed?

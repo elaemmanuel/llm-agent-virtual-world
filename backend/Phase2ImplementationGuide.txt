@@ -1,0 +1,440 @@
+# PHASE 2: FastAPI Server Setup Guide
+
+## Overview
+
+Phase 2 is about **exposing your harness through HTTP endpoints and WebSockets**.
+
+You'll create:
+1. `main.py` - FastAPI app initialization
+2. `utils/logger.py` - Structured logging
+3. Update service imports
+
+---
+
+## Step 1: Create Logger Utility
+
+The main.py needs a logger. Create `backend/utils/logger.py` with the code provided.
+
+This gives you:
+- Color-coded logs in development
+- JSON logs in production
+- Per-module loggers
+
+Test it:
+```bash
+python -c "from utils.logger import get_logger; logger = get_logger(__name__); logger.info('✓ Logger works!')"
+```
+
+---
+
+## Step 2: Copy main.py
+
+Copy the main.py file to `backend/main.py`.
+
+This sets up:
+- FastAPI application
+- CORS middleware (for React frontend)
+- Database initialization on startup
+- Service initialization
+- REST endpoints
+- WebSocket handler
+- Graceful shutdown
+
+---
+
+## Step 3: Update services/__init__.py
+
+Make sure `backend/services/__init__.py` has proper imports:
+
+```python
+from services.environment import VirtualEnvironment, Agent, WorldObject
+from services.agent import AgentService
+from services.llm import LLMService
+
+__all__ = [
+    "VirtualEnvironment",
+    "Agent",
+    "WorldObject",
+    "AgentService",
+    "LLMService"
+]
+```
+
+---
+
+## Step 4: Test Server Startup
+
+Before running, verify all imports work:
+
+```bash
+python -c "
+from main import app, app_state
+from config import settings
+print('✓ All imports successful')
+print(f'✓ Config loaded: {settings.APP_NAME}')
+print(f'✓ Database URL: {settings.DATABASE_URL}')
+"
+```
+
+Expected output:
+```
+✓ All imports successful
+✓ Config loaded: LLM Agent in Virtual World
+✓ Database URL: postgresql+asyncpg://...
+```
+
+---
+
+## Step 5: Start the Server
+
+Run the FastAPI development server:
+
+```bash
+uvicorn main:app --reload
+```
+
+Expected output:
+```
+╔════════════════════════════════════════════════════════╗
+║  🚀 LLM Agent in Virtual World - Phase 2 Server       ║
+║                                                        ║
+║  Starting server...                                   ║
+║  Environment: development                            ║
+║  Database: aiteacher                                 ║
+║  LLM Model: claude-opus-4-6                          ║
+║                                                        ║
+║  📚 API Docs: http://localhost:8000/docs            ║
+║  💚 Health Check: http://localhost:8000/health      ║
+║                                                        ║
+╚════════════════════════════════════════════════════════╝
+
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+```
+
+The `--reload` flag means the server restarts when you change code.
+
+---
+
+## Step 6: Test the API
+
+### 6.1: Health Check
+
+```bash
+curl http://localhost:8000/health
+```
+
+Expected response:
+```json
+{
+  "status": "healthy",
+  "app_name": "LLM Agent in Virtual World",
+  "version": "0.1.0"
+}
+```
+
+### 6.2: Check API Docs
+
+Open your browser:
+```
+http://localhost:8000/docs
+```
+
+You'll see the **Swagger UI** with all endpoints documented. You can test endpoints directly from the browser!
+
+### 6.3: Get World Status
+
+```bash
+curl http://localhost:8000/world/status
+```
+
+Expected response:
+```json
+{
+  "status": "success",
+  "world": {
+    "agent_position": [10.0, 0.0, 10.0],
+    "agent_direction": "north",
+    "agent_inventory": [],
+    "step_count": 0,
+    "max_steps": 100,
+    "num_objects": 0,
+    "world_size": {
+      "x": 20.0,
+      "y": 10.0,
+      "z": 20.0
+    }
+  }
+}
+```
+
+### 6.4: Setup World
+
+```bash
+curl -X POST http://localhost:8000/world/setup \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "id": 1,
+      "name": "Red Cube",
+      "object_type": "cube",
+      "position": [5, 0, 5],
+      "color": "red",
+      "pickupable": true
+    },
+    {
+      "id": 2,
+      "name": "Blue Door",
+      "object_type": "door",
+      "position": [15, 0, 10],
+      "color": "blue",
+      "state": "locked",
+      "interactable": true
+    }
+  ]'
+```
+
+Expected response:
+```json
+{
+  "status": "success",
+  "objects_added": 2,
+  "world_status": {...}
+}
+```
+
+### 6.5: Get Observation
+
+```bash
+curl "http://localhost:8000/world/observation?task=Navigate%20to%20the%20red%20cube"
+```
+
+Expected response:
+```json
+{
+  "status": "success",
+  "observation": {
+    "agent_state": {...},
+    "visible_objects": [...],
+    "inventory": [],
+    "environment_context": {...}
+  }
+}
+```
+
+---
+
+## Step 7: Start a Task
+
+This is the big one! Run an agent task:
+
+```bash
+curl -X POST "http://localhost:8000/tasks/start" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task_description": "Navigate to the red cube and examine it",
+    "max_steps": 50
+  }'
+```
+
+The agent will:
+1. Get an observation
+2. Send it to Claude
+3. Claude decides action
+4. Execute action
+5. Log to database
+6. Repeat until complete
+
+Expected response (will take a few seconds):
+```json
+{
+  "status": "success",
+  "task_result": {
+    "success": true,
+    "status": "success",
+    "steps_taken": 12,
+    "final_position": [5.0, 0.0, 5.0],
+    "inventory": ["Red Cube"],
+    "session_id": 1,
+    "duration_seconds": 5.23
+  }
+}
+```
+
+### 7.1: Get Task Results
+
+Once a task completes, get its details:
+
+```bash
+curl http://localhost:8000/tasks/1
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "task": {
+    "id": 1,
+    "task_description": "Navigate to the red cube and examine it",
+    "agent_name": "claude-opus-4-6",
+    "status": "success",
+    "success": true,
+    "steps_taken": 12,
+    "max_steps": 50,
+    "created_at": "2026-05-20T...",
+    "completion_time": "2026-05-20T..."
+  }
+}
+```
+
+### 7.2: Get Task Actions
+
+See every step the agent took:
+
+```bash
+curl http://localhost:8000/tasks/1/actions
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "task_id": 1,
+  "action_count": 12,
+  "actions": [
+    {
+      "step_number": 1,
+      "action_type": "move",
+      "action_args": {"direction": "forward"},
+      "success": true,
+      "result_message": "Moved forward...",
+      "position_before": [10.0, 0.0, 10.0],
+      "position_after": [10.0, 0.0, 11.0],
+      "created_at": "2026-05-20T..."
+    },
+    ...
+  ]
+}
+```
+
+---
+
+## Understanding What You've Built
+
+### Main.py Structure
+
+```
+main.py
+├── Lifespan management
+│   ├── startup_event() - Initialize everything
+│   └── shutdown_event() - Clean up
+├── Middleware
+│   └── CORS - Allow requests from React
+├── Health check
+│   └── /health - Server status
+├── Environment routes
+│   ├── POST /world/setup - Add objects
+│   ├── GET /world/status - Current state
+│   └── GET /world/observation - What agent sees
+├── Task routes
+│   ├── POST /tasks/start - Run agent
+│   ├── GET /tasks/{id} - Task results
+│   └── GET /tasks/{id}/actions - Step-by-step logs
+├── WebSocket
+│   └── /ws/{task_id} - Real-time updates
+└── Error handling
+    └── Global exception handler
+```
+
+### Key Concepts
+
+**Lifespan Context Manager:**
+- Everything before `yield` runs on startup
+- Everything after runs on shutdown
+- Ensures proper initialization and cleanup
+
+**Dependency Injection:**
+- Services stored in `app_state`
+- Access in routes: `app_state["environment"]`
+- Single instance per server
+
+**CORS Middleware:**
+- Allows React frontend to make requests
+- Configured in settings
+- Without it, browser blocks cross-origin requests
+
+**WebSocket:**
+- Persistent connection for real-time updates
+- Client connects to `/ws/{task_id}`
+- Can receive streaming updates as agent works
+
+---
+
+## Common Errors & Solutions
+
+### Error 1: "Module not found: uvicorn"
+
+Solution:
+```bash
+pip install uvicorn
+```
+
+(It's in requirements.txt, so `pip install -r requirements.txt` should have it)
+
+### Error 2: "Anthropic API key not found"
+
+Solution: Check your `.env` file has `ANTHROPIC_API_KEY`:
+
+```bash
+grep ANTHROPIC_API_KEY .env
+```
+
+If empty, get a key from https://console.anthropic.com/account/keys
+
+### Error 3: Database connection error
+
+Solution: Verify PostgreSQL is running and connection string is correct:
+
+```bash
+grep DATABASE_URL .env
+```
+
+Should look like:
+```
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/aiteacher
+```
+
+### Error 4: Port 8000 already in use
+
+Solution: Use a different port:
+
+```bash
+uvicorn main:app --reload --port 8001
+```
+
+---
+
+## Next Steps
+
+Once the server is running successfully:
+
+1. **Test all endpoints** using the Swagger UI (http://localhost:8000/docs)
+2. **Run multiple tasks** to test different scenarios
+3. **Check the database** - can you query task results?
+4. **Review task logs** - can you see every step?
+
+Then you're ready for **Phase 3: Frontend (React + Three.js)**.
+
+---
+
+## Assignment
+
+1. ✅ Create `backend/utils/logger.py`
+2. ✅ Create `backend/main.py`
+3. ✅ Test all imports work
+4. ✅ Start the server with `uvicorn main:app --reload`
+5. ✅ Test health check endpoint
+6. ✅ Test world setup endpoint
+7. ✅ Run a task and see results
+8. ✅ Get task actions and verify logging
+
+Report back once you have the server running and tasks executing! 🚀

@@ -1,0 +1,152 @@
+# Phase 2: Quick Start
+
+## Files to Create/Copy
+
+1. **`backend/utils/logger.py`** ← Copy from logger_utility.py
+2. **`backend/main.py`** ← Copy from main_phase2.py
+3. **`backend/utils/__init__.py`** ← Create (empty file)
+
+---
+
+## Quick Setup (5 minutes)
+
+### 1. Copy Files
+```bash
+cd backend/
+
+# Copy main.py
+cp ../main_phase2.py main.py
+
+# Copy logger
+mkdir -p utils
+cp ../logger_utility.py utils/logger.py
+touch utils/__init__.py
+```
+
+### 2. Verify Imports
+```bash
+python -c "from main import app; print('✓ Imports work')"
+```
+
+### 3. Start Server
+```bash
+uvicorn main:app --reload
+```
+
+You should see:
+```
+╔════════════════════════════════════════════════════════╗
+║  🚀 LLM Agent in Virtual World - Phase 2 Server       ║
+...
+INFO:     Uvicorn running on http://0.0.0.0:8000
+```
+
+### 4. Test in Browser
+Open: http://localhost:8000/docs
+
+You'll see Swagger UI with all endpoints!
+
+---
+
+## Key Endpoints
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/health` | Server status |
+| POST | `/world/setup` | Add objects to world |
+| GET | `/world/status` | Current world state |
+| GET | `/world/observation?task=...` | What agent perceives |
+| POST | `/tasks/start` | Run agent on task |
+| GET | `/tasks/{id}` | Get task results |
+| GET | `/tasks/{id}/actions` | Get all steps |
+| WS | `/ws/{task_id}` | Real-time updates |
+
+---
+
+## Test with Curl
+
+### Health Check
+```bash
+curl http://localhost:8000/health
+```
+
+### Setup World
+```bash
+curl -X POST http://localhost:8000/world/setup \
+  -H "Content-Type: application/json" \
+  -d '[
+    {"id": 1, "name": "Cube", "object_type": "cube", "position": [5, 0, 5], "color": "red", "pickupable": true}
+  ]'
+```
+
+### Start Task
+```bash
+curl -X POST http://localhost:8000/tasks/start \
+  -H "Content-Type: application/json" \
+  -d '{"task_description": "Find the red cube", "max_steps": 50}'
+```
+
+### Get Task Results
+```bash
+curl http://localhost:8000/tasks/1
+```
+
+---
+
+## Architecture (How It Works)
+
+```
+Client (React)
+     ↓
+   HTTP
+     ↓
+FastAPI (main.py)
+     ├─ /health → Server status
+     ├─ /world/* → Environment routes
+     ├─ /tasks/* → Task routes
+     └─ /ws/* → WebSocket
+     ↓
+Services (Phase 1)
+     ├─ VirtualEnvironment
+     ├─ AgentService
+     └─ LLMService
+     ↓
+Database (PostgreSQL)
+     ├─ environment_sessions
+     ├─ agent_actions
+     └─ world_objects
+```
+
+---
+
+## Common Issues
+
+**Port already in use:**
+```bash
+uvicorn main:app --reload --port 8001
+```
+
+**Module not found:**
+```bash
+pip install -r requirements.txt
+```
+
+**Database error:**
+Check .env has correct DATABASE_URL
+
+**No ANTHROPIC_API_KEY:**
+Get key from https://console.anthropic.com/account/keys
+
+---
+
+## What's Next
+
+Once server is running:
+1. ✅ Test endpoints in Swagger UI
+2. ✅ Run tasks and see results
+3. ✅ Check database logs
+4. Phase 3: Frontend (React + Three.js)
+
+---
+
+Need help? Check `phase2_implementation_guide.txt` for detailed explanations!

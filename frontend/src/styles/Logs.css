@@ -1,0 +1,59 @@
+ 
+/* ===== LOGS CSS ===== */
+ 
+/* frontend/src/styles/Logs.css */
+ 
+.logs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  height: 100%;
+}
+ 
+.logs h3 {
+  color: #00ff88;
+  font-size: 1.1rem;
+  border-bottom: 1px solid #333366;
+  padding-bottom: 0.5rem;
+}
+ 
+.log-content {
+  flex: 1;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  padding: 0.8rem;
+  border: 1px solid #333366;
+}
+ 
+.empty-logs {
+  color: #888;
+  text-align: center;
+  padding: 1rem;
+  font-style: italic;
+}
+ 
+.log-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+ 
+.log-entry {
+  font-size: 0.85rem;
+  color: #ccc;
+  padding: 0.4rem;
+  border-left: 2px solid #00ff88;
+  padding-left: 0.8rem;
+}
+ 
+.log-time {
+  color: #888;
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+ 
+.log-message {
+  color: #e0e0e0;
+}
